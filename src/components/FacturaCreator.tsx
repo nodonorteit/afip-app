@@ -5,8 +5,6 @@ import {
   Plus, 
   Trash2, 
   Save, 
-  Download, 
-  Send,
   User,
   FileText,
   Calculator,
@@ -21,10 +19,10 @@ import {
   CONCEPTOS,
   UNIDADES_MEDIDA,
   TIPOS_DOCUMENTO,
-  TIPOS_PERSONA,
-  PROVINCIAS
+  TIPOS_PERSONA
 } from '@/types/facturacion';
 import { facturacionService } from '@/services/facturacionService';
+import { afipService, DatosAFIP } from '@/services/afipService';
 
 export function FacturaCreator() {
   const [cliente, setCliente] = useState<Cliente>({
@@ -34,6 +32,9 @@ export function FacturaCreator() {
     TipoPersona: TIPOS_PERSONA.FISICA,
     CondicionImpositiva: CONDICIONES_IMPOSITIVAS.CONSUMIDOR_FINAL
   });
+
+  const [consultandoAFIP, setConsultandoAFIP] = useState(false);
+  const [datosAFIP, setDatosAFIP] = useState<DatosAFIP | null>(null);
 
   const [items, setItems] = useState<ItemFactura[]>([
     {
@@ -51,7 +52,7 @@ export function FacturaCreator() {
   );
 
   const [puntoVenta, setPuntoVenta] = useState(1);
-  const [tipoComprobante, setTipoComprobante] = useState(TIPOS_COMPROBANTE.FACTURA_B);
+  const [tipoComprobante, setTipoComprobante] = useState<number>(TIPOS_COMPROBANTE.FACTURA_B);
   const [leyenda, setLeyenda] = useState('');
   const [mensajeInicial, setMensajeInicial] = useState('');
   const [autoEnvioCorreo, setAutoEnvioCorreo] = useState(false);
@@ -76,14 +77,63 @@ export function FacturaCreator() {
     }
   };
 
-  const actualizarItem = (index: number, field: keyof ItemFactura, value: any) => {
+  const actualizarItem = (index: number, field: keyof ItemFactura, value: string | number) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     setItems(newItems);
   };
 
-  const actualizarCliente = (field: keyof Cliente, value: any) => {
+  const actualizarCliente = (field: keyof Cliente, value: string | number) => {
     setCliente({ ...cliente, [field]: value });
+  };
+
+  const consultarDatosAFIP = async (cuit: string) => {
+    if (cuit.length < 11) return;
+
+    setConsultandoAFIP(true);
+    try {
+      // Usar datos simulados para desarrollo
+      const datos = await afipService.consultarDatosSimulados(cuit);
+      
+      if (datos) {
+        setDatosAFIP(datos);
+        
+        // Autocompletar datos del cliente
+        const nuevoCliente: Cliente = {
+          Documento: datos.cuit,
+          TipoDocumento: afipService.determinarTipoDocumento(datos.cuit),
+          TipoPersona: afipService.determinarTipoPersona(datos.tipoPersona),
+          CondicionImpositiva: afipService.determinarCondicionImpositiva(datos.condicionImpositiva),
+          Nombre: datos.nombre || '',
+          Apellido: datos.apellido || '',
+          RazonSocial: datos.razonSocial || '',
+          Email: datos.email || '',
+          Telefono: datos.telefono || '',
+          Domicilio: datos.domicilio || '',
+          Localidad: datos.localidad || '',
+          CodigoPostal: datos.codigoPostal || ''
+        };
+
+        setCliente(nuevoCliente);
+      }
+    } catch (error) {
+      console.error('Error al consultar datos de AFIP:', error);
+    } finally {
+      setConsultandoAFIP(false);
+    }
+  };
+
+  const handleDocumentoChange = (value: string) => {
+    // Limpiar el documento (remover guiones)
+    const documentoLimpio = afipService.limpiarCUIT(value);
+    
+    // Actualizar el documento sin guiones
+    actualizarCliente('Documento', documentoLimpio);
+    
+    // Consultar AFIP si es un CUIT válido
+    if (documentoLimpio.length === 11) {
+      consultarDatosAFIP(documentoLimpio);
+    }
   };
 
   const validarFormulario = () => {
@@ -221,10 +271,15 @@ export function FacturaCreator() {
 
           {/* Datos del cliente */}
           <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-              <User className="mr-2 h-4 w-4" />
-              Datos del Cliente
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <User className="mr-2 h-4 w-4" />
+                Datos del Cliente
+              </h3>
+              <div className="text-xs text-gray-500 bg-blue-50 px-2 py-1 rounded">
+                CUITs de prueba: 20123456789, 20345678901, 20123456780, 20234567890
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
@@ -246,13 +301,36 @@ export function FacturaCreator() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Número de Documento
                 </label>
-                <input
-                  type="text"
-                  value={cliente.Documento}
-                  onChange={(e) => actualizarCliente('Documento', e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  placeholder="Ej: 20-12345678-9"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={afipService.formatearCUIT(cliente.Documento)}
+                    onChange={(e) => handleDocumentoChange(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="Ej: 20-12345678-9"
+                  />
+                  {consultandoAFIP && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    </div>
+                  )}
+                </div>
+                {datosAFIP && (
+                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <svg className="h-4 w-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-2">
+                        <p className="text-sm text-green-800">
+                          Datos obtenidos de AFIP: {datosAFIP.condicionImpositiva}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -434,7 +512,7 @@ export function FacturaCreator() {
                         <option value={UNIDADES_MEDIDA.KILOGRAMOS}>Kilogramos</option>
                         <option value={UNIDADES_MEDIDA.METROS}>Metros</option>
                         <option value={UNIDADES_MEDIDA.LITROS}>Litros</option>
-                        <option value={UNIDADES_MEDIDA.HORAS}>Horas</option>
+                        <option value={UNIDADES_MEDIDA.UNIDADES}>Horas</option>
                       </select>
                     </div>
 

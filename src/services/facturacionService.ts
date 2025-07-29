@@ -143,7 +143,7 @@ export class FacturacionService {
   /**
    * Obtener puntos de venta disponibles
    */
-  async obtenerPuntosVenta(): Promise<any> {
+  async obtenerPuntosVenta(): Promise<{ success: boolean; message?: string; data?: unknown }> {
     try {
       const response = await fetch(`${this.baseUrl}/ObtenerPuntosVenta`, {
         method: 'POST',
