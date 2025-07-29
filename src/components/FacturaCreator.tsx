@@ -6,6 +6,7 @@ import {
   Trash2, 
   Save, 
   User,
+  Users,
   FileText,
   Calculator,
   AlertCircle
@@ -23,6 +24,8 @@ import {
 } from '@/types/facturacion';
 import { facturacionService } from '@/services/facturacionService';
 import { afipService, DatosAFIP } from '@/services/afipService';
+import { clientesService } from '@/services/clientesService';
+import { ClienteDB } from '@/types/clientes';
 
 export function FacturaCreator() {
   const [cliente, setCliente] = useState<Cliente>({
@@ -35,6 +38,9 @@ export function FacturaCreator() {
 
   const [consultandoAFIP, setConsultandoAFIP] = useState(false);
   const [datosAFIP, setDatosAFIP] = useState<DatosAFIP | null>(null);
+  const [clientesDisponibles, setClientesDisponibles] = useState<ClienteDB[]>([]);
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteDB | null>(null);
+  const [mostrarSelectorClientes, setMostrarSelectorClientes] = useState(false);
 
   const [items, setItems] = useState<ItemFactura[]>([
     {
@@ -134,6 +140,38 @@ export function FacturaCreator() {
     if (documentoLimpio.length === 11) {
       consultarDatosAFIP(documentoLimpio);
     }
+  };
+
+  const cargarClientes = async () => {
+    try {
+      const response = await clientesService.getClientes({ activo: true }, 1, 100);
+      setClientesDisponibles(response.clientes);
+    } catch (error) {
+      console.error('Error al cargar clientes:', error);
+    }
+  };
+
+  const seleccionarCliente = (cliente: ClienteDB) => {
+    setClienteSeleccionado(cliente);
+    setMostrarSelectorClientes(false);
+    
+    // Autocompletar datos del cliente seleccionado
+    const nuevoCliente: Cliente = {
+      Documento: cliente.documento,
+      TipoDocumento: cliente.tipoDocumento,
+      Nombre: cliente.nombre,
+      Apellido: cliente.apellido || '',
+      RazonSocial: cliente.razonSocial || '',
+      TipoPersona: cliente.tipoPersona,
+      CondicionImpositiva: cliente.condicionImpositiva,
+      Email: cliente.email || '',
+      Telefono: cliente.telefono || '',
+      Domicilio: cliente.domicilio || '',
+      Localidad: cliente.localidad || '',
+      CodigoPostal: cliente.codigoPostal || ''
+    };
+
+    setCliente(nuevoCliente);
   };
 
   const validarFormulario = () => {
@@ -276,8 +314,19 @@ export function FacturaCreator() {
                 <User className="mr-2 h-4 w-4" />
                 Datos del Cliente
               </h3>
-              <div className="text-xs text-gray-500 bg-blue-50 px-2 py-1 rounded">
-                CUITs de prueba: 20123456789, 20345678901, 20123456780, 20234567890
+              <div className="flex items-center space-x-2">
+                <div className="text-xs text-gray-500 bg-blue-50 px-2 py-1 rounded">
+                  CUITs de prueba: 20123456789, 20345678901, 20123456780, 20234567890
+                </div>
+                <button
+                  onClick={() => {
+                    cargarClientes();
+                    setMostrarSelectorClientes(true);
+                  }}
+                  className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
+                >
+                  Seleccionar Cliente
+                </button>
               </div>
             </div>
 
@@ -634,6 +683,70 @@ export function FacturaCreator() {
           </div>
         </div>
       </div>
+
+      {/* Modal de selección de clientes */}
+      {mostrarSelectorClientes && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-96 overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Seleccionar Cliente</h3>
+              <button
+                onClick={() => setMostrarSelectorClientes(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {clientesDisponibles.length === 0 ? (
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 mb-4">No hay clientes disponibles</p>
+                <button
+                  onClick={() => window.location.href = '/clientes/nuevo'}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                >
+                  Crear nuevo cliente
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {clientesDisponibles.map((cliente) => (
+                  <div
+                    key={cliente.id}
+                    onClick={() => seleccionarCliente(cliente)}
+                    className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          {cliente.tipoPersona === 1
+                            ? `${cliente.nombre} ${cliente.apellido || ''}`
+                            : cliente.razonSocial || cliente.nombre
+                          }
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {afipService.formatearCUIT(cliente.documento)}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-gray-600">
+                          {cliente.email}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {cliente.tipoPersona === 1 ? 'Física' : 'Jurídica'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

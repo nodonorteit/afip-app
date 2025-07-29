@@ -1,17 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { 
-  Home, 
-  FileText, 
-  Calculator, 
-  Receipt, 
-  Calendar, 
-  CreditCard, 
-  Building, 
+import {
+  Home,
+  FileText,
+  Calculator,
+  Receipt,
+  Calendar,
+  CreditCard,
+  Building,
   BarChart3,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Users
 } from 'lucide-react';
 
 const navigation = [
@@ -20,6 +21,7 @@ const navigation = [
   { name: 'IVA', href: '/iva', icon: Receipt },
   { name: 'Ganancias', href: '/ganancias', icon: BarChart3 },
   { name: 'Facturación', href: '/facturacion', icon: FileText },
+  { name: 'Clientes', href: '/clientes', icon: Users },
   { name: 'Pagos', href: '/pagos', icon: CreditCard },
   { name: 'Vencimientos', href: '/vencimientos', icon: Calendar },
   { name: 'Empresas', href: '/empresas', icon: Building },
