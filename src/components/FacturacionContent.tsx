@@ -294,7 +294,10 @@ export function FacturacionContent() {
 
       {/* Action Buttons */}
       <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <button className="flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 transition-colors">
+        <button 
+          onClick={() => window.location.href = '/facturacion/nueva'}
+          className="flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 transition-colors"
+        >
           <Plus className="h-5 w-5" />
           <span>Nueva Factura</span>
         </button>
